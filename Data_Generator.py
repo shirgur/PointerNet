@@ -37,13 +37,6 @@ class TSPDataset(Dataset):
     """
     Random TSP dataset
 
-    Example:
-    dataset = TSPDataset(100, 5)
-    dataloader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=4)
-    for i_batch, sample_batched in enumerate(dataloader):
-        print(i_batch)
-        print(sample_batched['Points'])
-        print(sample_batched['Solution'])
     """
 
     def __init__(self, data_size, seq_len, solver=tsp_opt, solve=True):
