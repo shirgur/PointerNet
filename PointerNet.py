@@ -66,7 +66,8 @@ class Encoder(nn.Module):
     def __init__(self, embedding_dim,
                  hidden_dim,
                  n_layers,
-                 dropout):
+                 dropout,
+                 bidir):
         """
         Initiate Encoder
 
@@ -74,15 +75,18 @@ class Encoder(nn.Module):
         :param int hidden_dim: Number of hidden units for the LSTM
         :param int n_layers: Number of layers for LSTMs
         :param float dropout: Float between 0-1
+        :param bool bidir: Bidirectional
         """
 
         super(Encoder, self).__init__()
-        self.hidden_dim = hidden_dim
-        self.n_layers = n_layers
+        self.hidden_dim = hidden_dim//2 if bidir else hidden_dim
+        self.n_layers = n_layers*2 if bidir else n_layers
+        self.bidir = bidir
         self.lstm = nn.LSTM(embedding_dim,
-                            hidden_dim,
+                            self.hidden_dim,
                             n_layers,
-                            dropout=dropout)
+                            dropout=dropout,
+                            bidirectional=bidir)
 
         # Used for propagating .cuda() command
         self.h0 = Parameter(torch.zeros(1), requires_grad=False)
@@ -301,7 +305,8 @@ class PointerNet(nn.Module):
     def __init__(self, embedding_dim,
                  hidden_dim,
                  lstm_layers,
-                 dropout):
+                 dropout,
+                 bidir=False):
         """
         Initiate Pointer-Net
 
@@ -309,15 +314,18 @@ class PointerNet(nn.Module):
         :param int hidden_dim: Encoders hidden units
         :param int lstm_layers: Number of layers for LSTMs
         :param float dropout: Float between 0-1
+        :param bool bidir: Bidirectional
         """
 
         super(PointerNet, self).__init__()
         self.embedding_dim = embedding_dim
+        self.bidir = bidir
         self.embedding = nn.Conv1d(2, embedding_dim, 1, 1)
         self.encoder = Encoder(embedding_dim,
                                hidden_dim,
                                lstm_layers,
-                               dropout)
+                               dropout,
+                               bidir)
         self.decoder = Decoder(embedding_dim, hidden_dim)
         self.decoder_input0 = Parameter(torch.FloatTensor(embedding_dim), requires_grad=False)
 
@@ -342,9 +350,12 @@ class PointerNet(nn.Module):
         encoder_hidden0 = self.encoder.init_hidden(embedded_inputs)
         encoder_outputs, encoder_hidden = self.encoder(embedded_inputs,
                                                        encoder_hidden0)
-
-        decoder_hidden0 = (encoder_hidden[0][-1], encoder_hidden[1][-1])
-
+        if self.bidir:
+            decoder_hidden0 = (torch.cat(encoder_hidden[0][-2:], dim=-1),
+                               torch.cat(encoder_hidden[1][-2:], dim=-1))
+        else:
+            decoder_hidden0 = (encoder_hidden[0][-1],
+                               encoder_hidden[1][-1])
         (outputs, pointers), decoder_hidden = self.decoder(embedded_inputs,
                                                            decoder_input0,
                                                            decoder_hidden0,
