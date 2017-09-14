@@ -33,6 +33,7 @@ def tsp_opt(points):
     res = min([(A[d][0] + all_distances[0][d[1]], A[d][1]) for d in iter(A)])
     return np.asarray(res[1])
 
+
 class TSPDataset(Dataset):
     """
     Random TSP dataset

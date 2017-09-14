@@ -68,7 +68,6 @@ if USE_CUDA:
     cudnn.benchmark = True
 
 CCE = torch.nn.CrossEntropyLoss()
-tsp_loss = TSPLoss(1/4)
 model_optim = optim.Adam(filter(lambda p: p.requires_grad,
                                 model.parameters()),
                          lr=params.lr)
@@ -94,8 +93,7 @@ for epoch in range(params.nof_epoch):
 
         target_batch = target_batch.view(-1)
 
-        cce_loss = CCE(o, target_batch)
-        loss = tsp_loss(o, p, target_batch, train_batch)
+        loss = CCE(o, target_batch)
 
         losses.append(loss.data[0])
         batch_loss.append(loss.data[0])
@@ -104,6 +102,6 @@ for epoch in range(params.nof_epoch):
         loss.backward()
         model_optim.step()
 
-        iterator.set_postfix(loss='{}'.format(loss.data[0]), cce_loss='{}'.format(cce_loss.data[0]))
+        iterator.set_postfix(loss='{}'.format(loss.data[0]))
 
     iterator.set_postfix(loss=np.average(batch_loss))
