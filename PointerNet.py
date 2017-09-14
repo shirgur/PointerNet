@@ -4,6 +4,60 @@ from torch.nn import Parameter
 import torch.nn.functional as F
 
 
+class TSPLoss(nn.Module):
+    """
+    TSP loss function : CCE + lmbda*path_distance
+    """
+
+    def __init__(self, lmd=1):
+        super(TSPLoss, self).__init__()
+        self.cce = nn.CrossEntropyLoss()
+        self.lmd = lmd
+
+    def forward(self, probs, predicted_indices, true_indices, input_points):
+        """
+        TSPLoss - Forward pass
+
+        :param Tensor probs: Points probabilities for each selection
+        :param Tensor predicted_indices: Predicted points indices
+        :param Tensor true_indices: True points indices
+        :param Tensor input_points: Input points
+        :return: CCE + lmbda*path_distance
+        """
+
+        cce_loss = self.cce(probs, true_indices)
+
+        dist = input_points.clone()
+        dist.data = dist.sum(-1).data.fill_(0)
+
+        points = input_points.permute(0, 2, 1)
+
+        for i, (batch, ordered) in enumerate(zip(points, predicted_indices)):
+            for j, channel in enumerate(batch):
+                points.data[i, j, :] = channel[ordered].data
+
+        points = points.permute(2, 0, 1)
+
+        for i in range(len(points)):
+            if i > 0:
+                dist.data[:, i] = self.distance(points[i], points[i - 1]).data
+
+        mean_dist = dist.sum(-1).mean()
+
+        return cce_loss + self.lmd * mean_dist
+
+    def distance(self, a, b):
+        """
+        L_2 Distance across batch
+
+        :param Tenso a: First point(s) (batch, points, 2)
+        :param Tensor b: Second point(s) (batch, points, 2)
+        :return: L_2 Distance across batch
+        """
+
+        return (a - b).pow(2).sum(-1).sqrt()
+
+
 class Encoder(nn.Module):
     """
     Encoder class for Pointer-Net
