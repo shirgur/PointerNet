@@ -16,7 +16,7 @@ import numpy as np
 import argparse
 from tqdm import tqdm
 
-from PointerNet import PointerNet
+from PointerNet import PointerNet, TSPLoss
 from Data_Generator import TSPDataset
 
 parser = argparse.ArgumentParser(description="Pytorch implementation of Pointer-Net")
@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(description="Pytorch implementation of Pointer-
 parser.add_argument('--train_size', default=1000000, type=int, help='Training data size')
 parser.add_argument('--val_size', default=10000, type=int, help='Validation data size')
 parser.add_argument('--test_size', default=10000, type=int, help='Test data size')
-parser.add_argument('--batch_size', default=128, type=int, help='Batch size')
+parser.add_argument('--batch_size', default=256, type=int, help='Batch size')
 # Train
 parser.add_argument('--nof_epoch', default=50000, type=int, help='Number of epochs')
 parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
@@ -35,9 +35,10 @@ parser.add_argument('--gpu', default=True, action='store_true', help='Enable gpu
 parser.add_argument('--nof_points', type=int, default=5, help='Number of points in TSP')
 # Network
 parser.add_argument('--embedding_size', type=int, default=128, help='Embedding size')
-parser.add_argument('--hiddens', type=int, default=256, help='Number of hidden units')
-parser.add_argument('--nof_lstms', type=int, default=1, help='Number of LSTM layers')
+parser.add_argument('--hiddens', type=int, default=512, help='Number of hidden units')
+parser.add_argument('--nof_lstms', type=int, default=2, help='Number of LSTM layers')
 parser.add_argument('--dropout', type=float, default=0., help='Dropout value')
+parser.add_argument('--bidir', default=True, action='store_true', help='Bidirectional')
 
 params = parser.parse_args()
 
@@ -50,7 +51,8 @@ else:
 model = PointerNet(params.embedding_size,
                    params.hiddens,
                    params.nof_lstms,
-                   params.dropout)
+                   params.dropout,
+                   params.bidir)
 
 dataset = TSPDataset(params.train_size,
                      params.nof_points)
@@ -66,6 +68,7 @@ if USE_CUDA:
     cudnn.benchmark = True
 
 CCE = torch.nn.CrossEntropyLoss()
+tsp_loss = TSPLoss(1/4)
 model_optim = optim.Adam(filter(lambda p: p.requires_grad,
                                 model.parameters()),
                          lr=params.lr)
@@ -91,7 +94,9 @@ for epoch in range(params.nof_epoch):
 
         target_batch = target_batch.view(-1)
 
-        loss = CCE(o, target_batch)
+        cce_loss = CCE(o, target_batch)
+        loss = tsp_loss(o, p, target_batch, train_batch)
+
         losses.append(loss.data[0])
         batch_loss.append(loss.data[0])
 
@@ -99,6 +104,6 @@ for epoch in range(params.nof_epoch):
         loss.backward()
         model_optim.step()
 
-        iterator.set_postfix(loss='{}'.format(loss.data[0]))
+        iterator.set_postfix(loss='{}'.format(loss.data[0]), cce_loss='{}'.format(cce_loss.data[0]))
 
     iterator.set_postfix(loss=np.average(batch_loss))
