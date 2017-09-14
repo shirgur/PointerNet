@@ -208,6 +208,7 @@ class Decoder(nn.Module):
         self.hidden_to_hidden = nn.Linear(hidden_dim, 4 * hidden_dim)
         self.hidden_out = nn.Linear(hidden_dim * 2, hidden_dim)
         self.att = Attention(hidden_dim, hidden_dim)
+
         # Used for propagating .cuda() command
         self.mask = Parameter(torch.ones(1), requires_grad=False)
         self.runner = Parameter(torch.zeros(1), requires_grad=False)
@@ -296,6 +297,7 @@ class Decoder(nn.Module):
         pointers = torch.cat(pointers, 1)
 
         return (outputs, pointers), hidden
+
 
 class PointerNet(nn.Module):
     """
