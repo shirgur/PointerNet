@@ -177,7 +177,7 @@ class Decoder(nn.Module):
         input_length = embedded_inputs.size(1)
 
         # (batch, seq_len)
-        mask = self.mask.repeat(input_length).unsqueeze(0).expand(batch_size, -1)
+        mask = self.mask.repeat(input_length).unsqueeze(0).repeat(batch_size, 1)
 
         # Generating arang(input_length), broadcasted across batch_size
         runner = self.runner.repeat(input_length)
