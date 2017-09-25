@@ -97,6 +97,7 @@ class Attention(nn.Module):
         self.input_linear = nn.Linear(input_dim, hidden_dim)
         self.context_linear = nn.Conv1d(input_dim, hidden_dim, 1, 1)
         self.V = Parameter(torch.FloatTensor(hidden_dim), requires_grad=True)
+        self._inf = Parameter(torch.FloatTensor([float('-inf')]), requires_grad=False)
         self.tanh = nn.Tanh()
         self.softmax = nn.Softmax()
 
@@ -104,12 +105,14 @@ class Attention(nn.Module):
         nn.init.uniform(self.V, -1, 1)
 
     def forward(self, input,
-                context):
+                context,
+                mask):
         """
         Attention - Forward-pass
 
         :param Tensor input: Hidden state h
         :param Tensor context: Attention context
+        :param ByteTensor mask: Selection mask
         :return: tuple of - (Attentioned hidden state, Alphas)
         """
 
@@ -125,11 +128,16 @@ class Attention(nn.Module):
 
         # (batch, seq_len)
         att = torch.bmm(V, self.tanh(inp + ctx)).squeeze(1)
+        if len(att[mask]) > 0:
+            att[mask] = self.inf[mask]
         alpha = self.softmax(att)
 
         hidden_state = torch.bmm(ctx, alpha.unsqueeze(2)).squeeze(2)
 
         return hidden_state, alpha
+
+    def init_inf(self, mask_size):
+        self.inf = self._inf.unsqueeze(1).expand(*mask_size)
 
 
 class Decoder(nn.Module):
@@ -212,7 +220,7 @@ class Decoder(nn.Module):
             h_t = out * F.tanh(c_t)
 
             # Attention section
-            hidden_t, output = self.att(h_t, context)
+            hidden_t, output = self.att(h_t, context, torch.eq(mask, 0))
             hidden_t = F.tanh(self.hidden_out(torch.cat((hidden_t, h_t), 1)))
 
             return hidden_t, c_t, output
