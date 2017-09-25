@@ -268,7 +268,7 @@ class PointerNet(nn.Module):
         super(PointerNet, self).__init__()
         self.embedding_dim = embedding_dim
         self.bidir = bidir
-        self.embedding = nn.Conv1d(2, embedding_dim, 1, 1)
+        self.embedding = nn.Linear(2, embedding_dim)
         self.encoder = Encoder(embedding_dim,
                                hidden_dim,
                                lstm_layers,
@@ -289,11 +289,12 @@ class PointerNet(nn.Module):
         """
 
         batch_size = inputs.size(0)
+        input_length = inputs.size(1)
 
         decoder_input0 = self.decoder_input0.unsqueeze(0).expand(batch_size, -1)
 
-        inputs = inputs.permute(0, 2, 1)
-        embedded_inputs = self.embedding(inputs).permute(0, 2, 1)
+        inputs = inputs.view(batch_size * input_length, -1)
+        embedded_inputs = self.embedding(inputs).view(batch_size, input_length, -1)
 
         encoder_hidden0 = self.encoder.init_hidden(embedded_inputs)
         encoder_outputs, encoder_hidden = self.encoder(embedded_inputs,
