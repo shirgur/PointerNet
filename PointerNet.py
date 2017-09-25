@@ -196,7 +196,7 @@ class Decoder(nn.Module):
         outputs = []
         pointers = []
 
-        def recurrence(x, hidden):
+        def step(x, hidden):
             """
             Recurrence step function
 
@@ -227,7 +227,7 @@ class Decoder(nn.Module):
 
         # Recurrence loop
         for _ in range(input_length):
-            h_t, c_t, outs = recurrence(decoder_input, hidden)
+            h_t, c_t, outs = step(decoder_input, hidden)
             hidden = (h_t, c_t)
 
             # Masking selected inputs
